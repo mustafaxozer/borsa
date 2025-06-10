@@ -1,48 +1,31 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
+// server.js
+const WebSocket = require('ws');
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
+const wss = new WebSocket.Server({ port: 8080 });
 
-let coinValue = 100; // Başlangıç WFX değeri
-const history = [];  // Grafik için tarihçeyi tutar (max 30 nokta)
+let currentPrice = 1.00;
 
-function addHistory(value) {
-  const time = new Date().toLocaleTimeString();
-  history.push({ time, value });
-  if (history.length > 30) history.shift();
+function randomChange() {
+  const change = (Math.random() * 0.1 - 0.05);
+  currentPrice = Math.max(0.1, +(currentPrice + change).toFixed(2));
+  return currentPrice;
 }
 
-// İlk değer
-addHistory(coinValue);
+wss.on('connection', function connection(ws) {
+  // Bağlanan yeni clienta anında fiyatı gönder
+  ws.send(JSON.stringify({ price: currentPrice }));
 
-app.use(express.static('public')); // public klasöründe frontend dosyaları
+  // Her saniye fiyat güncelle ve tüm clientlara yolla
+  const interval = setInterval(() => {
+    const price = randomChange();
+    wss.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({ price }));
+      }
+    });
+  }, 1000);
 
-io.on('connection', (socket) => {
-  console.log('Yeni client bağlandı');
-
-  // İlk veriyi gönder
-  socket.emit('update', { coinValue, history });
-
-  // Al veya Sat talebi
-  socket.on('trade', (type) => {
-    if (type === 'buy') coinValue += 1;
-    else if (type === 'sell') coinValue -= 1;
-    if (coinValue < 0) coinValue = 0; // Negatif olmasın
-    addHistory(coinValue);
-
-    // Tüm clientlara güncel veri gönder
-    io.emit('update', { coinValue, history });
-  });
-
-  socket.on('disconnect', () => {
-    console.log('Client ayrıldı');
-  });
+  ws.on('close', () => clearInterval(interval));
 });
 
-const PORT = 3000;
-server.listen(PORT, () => {
-  console.log(`Sunucu ${PORT} portunda çalışıyor`);
-});
+console.log('WebSocket server 8080 portunda çalışıyor...');
