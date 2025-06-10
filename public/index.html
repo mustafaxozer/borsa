@@ -1,99 +1,130 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8" />
-    <title>Canlı Fiyat Grafiği</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        padding: 20px;
-      }
-      #price {
-        font-size: 24px;
-        margin-bottom: 10px;
-      }
-    </style>
+  <meta charset="UTF-8" />
+  <title>Al-Sat ile Canlı Fiyat Grafiği</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 700px;
+      margin: auto;
+    }
+    #price {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    button {
+      font-size: 18px;
+      margin-right: 10px;
+      padding: 10px 20px;
+      cursor: pointer;
+    }
+    #status {
+      margin-top: 15px;
+      font-weight: bold;
+      color: green;
+    }
+  </style>
 </head>
 <body>
-    <div id="price">Fiyat: 1.00 TL</div>
-    <canvas id="myChart" width="600" height="300"></canvas>
+  <div id="price">Fiyat: 1.00 TL</div>
+  <button id="buyBtn">Al (Buy)</button>
+  <button id="sellBtn">Sat (Sell)</button>
+  <canvas id="myChart" width="600" height="300"></canvas>
+  <div id="status"></div>
 
-    <script>
-        const labels = [];
-        const dataPoints = [];
+  <script>
+    const labels = [];
+    const dataPoints = [];
 
-        function getTimeLabel() {
-            const d = new Date();
-            return d.getHours().toString().padStart(2, '0') + ':' +
-                   d.getMinutes().toString().padStart(2, '0') + ':' +
-                   d.getSeconds().toString().padStart(2, '0');
+    function getTimeLabel() {
+      const d = new Date();
+      return d.getHours().toString().padStart(2, '0') + ':' +
+             d.getMinutes().toString().padStart(2, '0') + ':' +
+             d.getSeconds().toString().padStart(2, '0');
+    }
+
+    const ctx = document.getElementById('myChart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Fiyat (TL)',
+          data: dataPoints,
+          borderColor: 'rgba(75, 192, 192, 1)',
+          backgroundColor: 'rgba(75, 192, 192, 0.2)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 0,
+        }]
+      },
+      options: {
+        animation: false,
+        responsive: true,
+        scales: {
+          x: {
+            display: true,
+            title: { display: true, text: 'Zaman' }
+          },
+          y: {
+            display: true,
+            title: { display: true, text: 'Fiyat (TL)' },
+            suggestedMin: 0,
+            suggestedMax: 3,
+          }
         }
+      }
+    });
 
-        const ctx = document.getElementById('myChart').getContext('2d');
-        const chart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Fiyat (TL)',
-                    data: dataPoints,
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 0,
-                }]
-            },
-            options: {
-                animation: false,
-                responsive: true,
-                scales: {
-                    x: {
-                        display: true,
-                        title: { display: true, text: 'Zaman' }
-                    },
-                    y: {
-                        display: true,
-                        title: { display: true, text: 'Fiyat (TL)' },
-                        suggestedMin: 0,
-                        suggestedMax: 2,
-                    }
-                }
-            }
-        });
+    // WebSocket bağlantısı (localhost ise kendi makinen)
+    const ws = new WebSocket('ws://localhost:8080');
 
-        // Burada localhost yerine kendi IP'n veya server adresin olabilir
-        const ws = new WebSocket('ws://localhost:8080');
+    ws.onopen = () => {
+      document.getElementById('status').innerText = 'WebSocket bağlantısı açıldı.';
+    };
 
-        ws.onopen = () => {
-            console.log('WebSocket bağlantısı açıldı.');
-        };
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      const price = data.price;
 
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            const price = data.price;
+      labels.push(getTimeLabel());
+      dataPoints.push(price);
 
-            labels.push(getTimeLabel());
-            dataPoints.push(price);
+      document.getElementById('price').innerText = 'Fiyat: ' + price.toFixed(2) + ' TL';
 
-            document.getElementById('price').innerText = 'Fiyat: ' + price.toFixed(2) + ' TL';
+      if (labels.length > 30) {
+        labels.shift();
+        dataPoints.shift();
+      }
+      chart.update();
+    };
 
-            chart.update();
+    ws.onerror = (error) => {
+      document.getElementById('status').innerText = 'WebSocket hatası: ' + error.message;
+      document.getElementById('status').style.color = 'red';
+      console.error('WebSocket hatası:', error);
+    };
 
-            if (labels.length > 30) {
-                labels.shift();
-                dataPoints.shift();
-            }
-        };
+    ws.onclose = () => {
+      document.getElementById('status').innerText = 'WebSocket bağlantısı kapandı.';
+      document.getElementById('status').style.color = 'orange';
+    };
 
-        ws.onerror = (error) => {
-            console.error('WebSocket hatası:', error);
-        };
+    // Butonlar ve mesaj gönderimi
+    document.getElementById('buyBtn').addEventListener('click', () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: "buy" }));
+      }
+    });
 
-        ws.onclose = () => {
-            console.log('WebSocket bağlantısı kapandı.');
-        };
-    </script>
+    document.getElementById('sellBtn').addEventListener('click', () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: "sell" }));
+      }
+    });
+  </script>
 </body>
 </html>
