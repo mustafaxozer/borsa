@@ -12,7 +12,7 @@ bot.onText(/\/start/, (msg) => {
           {
             text: '📈 Grafiği Aç',
             web_app: {
-              url: 'https://wfx-simulator.vercel.app' // Şimdilik localhost değil!
+              url: 'https://borsa-ashen.vercel.app/' // Şimdilik localhost değil!
             }
           }
         ]
