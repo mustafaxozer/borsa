@@ -1,75 +1,104 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8" />
-  <title>WFX Coin Mini App</title>
-  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body { font-family: Arial; text-align: center; background: #121212; color: #eee; margin: 0; padding: 20px;}
-    #chartContainer { width: 100%; max-width: 600px; margin: 0 auto; }
-    button {
-      padding: 10px 20px; font-size: 1.2rem; margin: 10px;
-      cursor: pointer; border: none; border-radius: 5px;
-      color: white;
-    }
-    #buyBtn { background: #4caf50; }
-    #sellBtn { background: #f44336; }
-  </style>
+    <meta charset="UTF-8" />
+    <title>Canlı Güncellenen Fiyat Grafiği</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+      }
+      #price {
+        font-size: 24px;
+        margin-bottom: 10px;
+      }
+    </style>
 </head>
 <body>
+    <div id="price">Fiyat: 1.00 TL</div>
+    <canvas id="myChart" width="600" height="300"></canvas>
 
-<h1>WFX Coin Grafik</h1>
-<div id="chartContainer">
-  <canvas id="coinChart"></canvas>
-</div>
-<div>
-  <button id="buyBtn">Al</button>
-  <button id="sellBtn">Sat</button>
-</div>
+    <script>
+        // Başlangıç fiyatı
+        let currentPrice = 1.00;
 
-<script>
-  const socket = io();
+        // Grafik için zaman ve fiyat dizileri
+        const labels = [];
+        const dataPoints = [];
 
-  const ctx = document.getElementById('coinChart').getContext('2d');
+        // Şu anki zamanı label olarak alalım
+        function getTimeLabel() {
+            const d = new Date();
+            return d.getHours().toString().padStart(2, '0') + ':' +
+                   d.getMinutes().toString().padStart(2, '0') + ':' +
+                   d.getSeconds().toString().padStart(2, '0');
+        }
 
-  let coinChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'WFX Coin Değeri',
-        data: [],
-        borderColor: '#4caf50',
-        backgroundColor: 'rgba(76, 175, 80, 0.3)',
-        tension: 0.3,
-        fill: true,
-      }]
-    },
-    options: {
-      animation: false,
-      scales: {
-        y: { beginAtZero: true, max: 200 },
-        x: { ticks: { maxRotation: 0 } }
-      }
-    }
-  });
+        // Chart.js ayarları
+        const ctx = document.getElementById('myChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Fiyat (TL)',
+                    data: dataPoints,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 0,
+                }]
+            },
+            options: {
+                animation: false,
+                responsive: true,
+                scales: {
+                    x: {
+                        display: true,
+                        title: { display: true, text: 'Zaman' }
+                    },
+                    y: {
+                        display: true,
+                        title: { display: true, text: 'Fiyat (TL)' },
+                        suggestedMin: 0,
+                        suggestedMax: 2,
+                    }
+                }
+            }
+        });
 
-  // Sunucudan veri geldiğinde grafik güncelle
-  socket.on('update', ({ coinValue, history }) => {
-    coinChart.data.labels = history.map(h => h.time);
-    coinChart.data.datasets[0].data = history.map(h => h.value);
-    coinChart.update();
-  });
+        // İlk veriyi ekle
+        function addData() {
+            // Zaman etiketi ekle
+            labels.push(getTimeLabel());
 
-  // Al/Sat butonları
-  document.getElementById('buyBtn').onclick = () => {
-    socket.emit('trade', 'buy');
-  };
-  document.getElementById('sellBtn').onclick = () => {
-    socket.emit('trade', 'sell');
-  };
-</script>
+            // Fiyatı rastgele ±0.05 arasında değiştir (minimum 0.1 TL olsun)
+            const change = (Math.random() * 0.1 - 0.05);
+            currentPrice = Math.max(0.1, +(currentPrice + change).toFixed(2));
+            
+            dataPoints.push(currentPrice);
 
+            // Fiyatı ekranda göster
+            document.getElementById('price').innerText = 'Fiyat: ' + currentPrice.toFixed(2) + ' TL';
+
+            // Grafik güncelle
+            chart.update();
+
+            // Gereksiz veriyi sil (örneğin 30 saniyeden sonra)
+            if(labels.length > 30) {
+                labels.shift();
+                dataPoints.shift();
+            }
+        }
+
+        // Her 1 saniyede bir güncelle
+        setInterval(addData, 1000);
+
+        // Başlangıç için ilk veri
+        addData();
+
+    </script>
 </body>
 </html>
