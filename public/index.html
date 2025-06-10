@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8" />
-    <title>Canlı Güncellenen Fiyat Grafiği</title>
+    <title>Canlı Fiyat Grafiği</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
       body {
@@ -20,11 +20,9 @@
     <canvas id="myChart" width="600" height="300"></canvas>
 
     <script>
-        // Grafik için zaman ve fiyat dizileri
         const labels = [];
         const dataPoints = [];
 
-        // Zaman etiketi fonksiyonu
         function getTimeLabel() {
             const d = new Date();
             return d.getHours().toString().padStart(2, '0') + ':' +
@@ -32,7 +30,6 @@
                    d.getSeconds().toString().padStart(2, '0');
         }
 
-        // Chart.js ayarları
         const ctx = document.getElementById('myChart').getContext('2d');
         const chart = new Chart(ctx, {
             type: 'line',
@@ -66,7 +63,7 @@
             }
         });
 
-        // WebSocket bağlantısı
+        // Burada localhost yerine kendi IP'n veya server adresin olabilir
         const ws = new WebSocket('ws://localhost:8080');
 
         ws.onopen = () => {
@@ -77,20 +74,14 @@
             const data = JSON.parse(event.data);
             const price = data.price;
 
-            // Zaman etiketi ekle
             labels.push(getTimeLabel());
-
-            // Yeni fiyatı ekle
             dataPoints.push(price);
 
-            // Fiyatı ekranda göster
             document.getElementById('price').innerText = 'Fiyat: ' + price.toFixed(2) + ' TL';
 
-            // Grafik güncelle
             chart.update();
 
-            // Gereksiz veriyi sil (örneğin 30 saniyeden sonra)
-            if(labels.length > 30) {
+            if (labels.length > 30) {
                 labels.shift();
                 dataPoints.shift();
             }
