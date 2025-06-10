@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>WFX Coin Mini App</title>
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial; text-align: center; background: #121212; color: #eee; margin: 0; padding: 20px;}
+    #chartContainer { width: 100%; max-width: 600px; margin: 0 auto; }
+    button {
+      padding: 10px 20px; font-size: 1.2rem; margin: 10px;
+      cursor: pointer; border: none; border-radius: 5px;
+      color: white;
+    }
+    #buyBtn { background: #4caf50; }
+    #sellBtn { background: #f44336; }
+  </style>
+</head>
+<body>
+
+<h1>WFX Coin Grafik</h1>
+<div id="chartContainer">
+  <canvas id="coinChart"></canvas>
+</div>
+<div>
+  <button id="buyBtn">Al</button>
+  <button id="sellBtn">Sat</button>
+</div>
+
+<script>
+  const socket = io();
+
+  const ctx = document.getElementById('coinChart').getContext('2d');
+
+  let coinChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'WFX Coin Değeri',
+        data: [],
+        borderColor: '#4caf50',
+        backgroundColor: 'rgba(76, 175, 80, 0.3)',
+        tension: 0.3,
+        fill: true,
+      }]
+    },
+    options: {
+      animation: false,
+      scales: {
+        y: { beginAtZero: true, max: 200 },
+        x: { ticks: { maxRotation: 0 } }
+      }
+    }
+  });
+
+  // Sunucudan veri geldiğinde grafik güncelle
+  socket.on('update', ({ coinValue, history }) => {
+    coinChart.data.labels = history.map(h => h.time);
+    coinChart.data.datasets[0].data = history.map(h => h.value);
+    coinChart.update();
+  });
+
+  // Al/Sat butonları
+  document.getElementById('buyBtn').onclick = () => {
+    socket.emit('trade', 'buy');
+  };
+  document.getElementById('sellBtn').onclick = () => {
+    socket.emit('trade', 'sell');
+  };
+</script>
+
+</body>
+</html>
