@@ -1,4 +1,3 @@
-// server.js
 const WebSocket = require('ws');
 
 const wss = new WebSocket.Server({ port: 8080 });
@@ -6,26 +5,55 @@ const wss = new WebSocket.Server({ port: 8080 });
 let currentPrice = 1.00;
 
 function randomChange() {
-  const change = (Math.random() * 0.1 - 0.05);
+  // Küçük rastgele hareket ±0.02
+  const change = (Math.random() * 0.04 - 0.02);
   currentPrice = Math.max(0.1, +(currentPrice + change).toFixed(2));
-  return currentPrice;
 }
 
-wss.on('connection', function connection(ws) {
-  // Bağlanan yeni clienta anında fiyatı gönder
+function applyBuy() {
+  // Alım fiyatı 0.05 - 0.10 TL arası yükseltsin
+  const change = (Math.random() * 0.05 + 0.05);
+  currentPrice = +(currentPrice + change).toFixed(2);
+}
+
+function applySell() {
+  // Satım fiyatı 0.05 - 0.10 TL arası düşürsün (ama 0.1 altına düşürme)
+  const change = (Math.random() * 0.05 + 0.05);
+  currentPrice = Math.max(0.1, +(currentPrice - change).toFixed(2));
+}
+
+function broadcastPrice() {
+  const msg = JSON.stringify({ price: currentPrice });
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(msg);
+    }
+  });
+}
+
+wss.on('connection', ws => {
+  // Bağlanan clienta anında fiyatı gönder
   ws.send(JSON.stringify({ price: currentPrice }));
 
-  // Her saniye fiyat güncelle ve tüm clientlara yolla
-  const interval = setInterval(() => {
-    const price = randomChange();
-    wss.clients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify({ price }));
+  ws.on('message', message => {
+    try {
+      const data = JSON.parse(message);
+      if (data.action === "buy") {
+        applyBuy();
+      } else if (data.action === "sell") {
+        applySell();
       }
-    });
-  }, 1000);
-
-  ws.on('close', () => clearInterval(interval));
+      broadcastPrice();
+    } catch (e) {
+      console.error("Hatalı mesaj:", message);
+    }
+  });
 });
+
+// Her saniye rastgele küçük fiyat değişikliği ve tüm clientlara güncelleme
+setInterval(() => {
+  randomChange();
+  broadcastPrice();
+}, 1000);
 
 console.log('WebSocket server 8080 portunda çalışıyor...');
