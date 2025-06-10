@@ -20,14 +20,11 @@
     <canvas id="myChart" width="600" height="300"></canvas>
 
     <script>
-        // Başlangıç fiyatı
-        let currentPrice = 1.00;
-
         // Grafik için zaman ve fiyat dizileri
         const labels = [];
         const dataPoints = [];
 
-        // Şu anki zamanı label olarak alalım
+        // Zaman etiketi fonksiyonu
         function getTimeLabel() {
             const d = new Date();
             return d.getHours().toString().padStart(2, '0') + ':' +
@@ -69,19 +66,25 @@
             }
         });
 
-        // İlk veriyi ekle
-        function addData() {
+        // WebSocket bağlantısı
+        const ws = new WebSocket('ws://localhost:8080');
+
+        ws.onopen = () => {
+            console.log('WebSocket bağlantısı açıldı.');
+        };
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            const price = data.price;
+
             // Zaman etiketi ekle
             labels.push(getTimeLabel());
 
-            // Fiyatı rastgele ±0.05 arasında değiştir (minimum 0.1 TL olsun)
-            const change = (Math.random() * 0.1 - 0.05);
-            currentPrice = Math.max(0.1, +(currentPrice + change).toFixed(2));
-            
-            dataPoints.push(currentPrice);
+            // Yeni fiyatı ekle
+            dataPoints.push(price);
 
             // Fiyatı ekranda göster
-            document.getElementById('price').innerText = 'Fiyat: ' + currentPrice.toFixed(2) + ' TL';
+            document.getElementById('price').innerText = 'Fiyat: ' + price.toFixed(2) + ' TL';
 
             // Grafik güncelle
             chart.update();
@@ -91,14 +94,15 @@
                 labels.shift();
                 dataPoints.shift();
             }
-        }
+        };
 
-        // Her 1 saniyede bir güncelle
-        setInterval(addData, 1000);
+        ws.onerror = (error) => {
+            console.error('WebSocket hatası:', error);
+        };
 
-        // Başlangıç için ilk veri
-        addData();
-
+        ws.onclose = () => {
+            console.log('WebSocket bağlantısı kapandı.');
+        };
     </script>
 </body>
 </html>
